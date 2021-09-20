@@ -2,6 +2,7 @@ package example
 
 import example.model.*
 import org.neo4j.ogm.session.Session
+import java.lang.IllegalStateException
 import java.util.*
 
 class Service {
@@ -12,11 +13,14 @@ class Service {
             val created = mutableListOf<Entity>()
             val deleted = mutableListOf<Entity>()
             val changes = mutableListOf<Change>()
+
             entity = if (id == null) {
                 val e = Entity(id = null, type = type, fields = emptyArray())
                 created.add(e)
                 e
             } else ses.load(Entity::class.java, id, 3)
+
+            checkEntity(entity)
 
             val fields = entity.fields.toMutableList()
 
@@ -51,6 +55,24 @@ class Service {
         return entity
     }
 
+    fun delete(ses: Session, id: UUID): Version {
+        lateinit var version: Version
+        ses.beginTransaction().use { tx ->
+            val entity = ses.load(Entity::class.java, id, 3)
+            checkEntity(entity)
+
+            version = Version()
+            entity.deleted = version
+            version.deleted += entity
+
+            ses.save(version)
+            ses.save(entity)
+
+            tx.commit()
+        }
+        return version
+    }
+
     fun get(ses: Session, id: UUID?, version: Long = Long.MAX_VALUE): Array<Pair<String, String?>> {
         val entity = ses.load(Entity::class.java, id, 3)
         return entity.fields.map { f ->
@@ -58,5 +80,11 @@ class Service {
             val value = f.changes.last { it.version?.id!! <= version }
             Pair(f.name, value.value?.value)
         }.toTypedArray()
+    }
+
+    private fun checkEntity(entity: Entity) {
+        if (entity.deleted != null) {
+            throw IllegalStateException("Entity is deleted. id: ${entity.id}")
+        }
     }
 }

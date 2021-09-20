@@ -14,7 +14,9 @@ data class Entity constructor(
     @Id @GeneratedValue(strategy = UuidStrategy::class) @Convert(UuidStringConverter::class) var id: UUID? = null,
     var type: String = "Object",
     @Relationship(type = "fields") var fields: Array<Field> = emptyArray(),
-)
+) {
+    @Relationship(type = "deleted") var deleted: Version? = null
+}
 
 @NodeEntity("Field")
 data class Field constructor(
