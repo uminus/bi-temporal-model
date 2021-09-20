@@ -2,14 +2,22 @@ package example
 
 import example.model.*
 import org.neo4j.ogm.session.Session
-import java.lang.IllegalStateException
+import java.time.ZonedDateTime
 import java.util.*
 
 class Service {
-    fun save(ses: Session, id: UUID?, type: String, vararg kvs: Pair<String, String>): Entity {
+    fun save(
+        ses: Session,
+        time: ZonedDateTime? = ZonedDateTime.now(),
+        id: UUID?,
+        type: String,
+        vararg kvs: Pair<String, String>
+    ): Pair<Version, Entity> {
+        lateinit var version: Version
         lateinit var entity: Entity
         ses.beginTransaction().use { tx ->
-            val version = Version()
+            version = Version()
+            val t = Timeline(id = time)
             val created = mutableListOf<Entity>()
             val deleted = mutableListOf<Entity>()
             val changes = mutableListOf<Change>()
@@ -28,13 +36,13 @@ class Service {
                 val key = kv.first
                 val value = kv.second
                 val v = Value(id = null, value = value)
-                val c = Change(id = null, value = v, version = version)
+                val c = Change(id = null, value = v, version = version, timeline = t)
                 changes.add(c)
 
                 val fieldExists = fields.any() { it.name == key }
 
                 val f = fields.find { it.name == key } ?: Field(id = null, key, changes = emptyArray())
-                f.changes = f.changes + c
+                f.changes += c
 
                 if (!fieldExists) {
                     fields.add(f)
@@ -52,17 +60,18 @@ class Service {
             tx.commit()
         }
 
-        return entity
+        return Pair(version, entity)
     }
 
-    fun delete(ses: Session, id: UUID): Version {
+    fun delete(ses: Session, time: ZonedDateTime? = ZonedDateTime.now(), id: UUID): Version {
         lateinit var version: Version
         ses.beginTransaction().use { tx ->
             val entity = ses.load(Entity::class.java, id, 3)
             checkEntity(entity)
 
             version = Version()
-            entity.deleted = version
+            val timeline = Timeline(id = time)
+            entity.deleted = Change(id = null, value = null, version = version, timeline = timeline)
             version.deleted += entity
 
             ses.save(version)
@@ -73,13 +82,22 @@ class Service {
         return version
     }
 
-    fun get(ses: Session, id: UUID?, version: Long = Long.MAX_VALUE): Array<Pair<String, String?>> {
+    fun get(
+        ses: Session,
+        time: ZonedDateTime = ZonedDateTime.now(),
+        version: Long? = Long.MAX_VALUE,
+        id: UUID?,
+    ): Array<Pair<String, String?>> {
         val entity = ses.load(Entity::class.java, id, 3)
         return entity.fields.map { f ->
-            f.changes.sortBy { it.version?.id }
-            val value = f.changes.last { it.version?.id!! <= version }
-            Pair(f.name, value.value?.value)
-        }.toTypedArray()
+            val versioned = f.changes
+                .filter { it.version?.id!! <= (version ?: Long.MAX_VALUE) }
+                .sortedBy { it.timeline?.id }
+            val value = versioned.lastOrNull { it.timeline?.id!! <= time }
+            Pair(f.name, value?.value?.value)
+        }
+            .filter { it.second != null }
+            .toTypedArray()
     }
 
     private fun checkEntity(entity: Entity) {

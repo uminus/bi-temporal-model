@@ -15,7 +15,8 @@ data class Entity constructor(
     var type: String = "Object",
     @Relationship(type = "fields") var fields: Array<Field> = emptyArray(),
 ) {
-    @Relationship(type = "deleted") var deleted: Version? = null
+    @Relationship(type = "deleted")
+    var deleted: Change? = null
 }
 
 @NodeEntity("Field")
@@ -30,8 +31,9 @@ data class Field constructor(
 @NodeEntity("Change")
 data class Change constructor(
     @Id @GeneratedValue(strategy = UuidStrategy::class) @Convert(UuidStringConverter::class) val id: UUID? = null,
-    @Relationship(type="value") val value: Value? = null,
-    @Relationship(type = "version", direction=Relationship.INCOMING) val version: Version? = null,
+    @Relationship(type = "value") val value: Value? = null,
+    @Relationship(type = "version", direction = Relationship.INCOMING) val version: Version? = null,
+    @Relationship(type = "timeline", direction = Relationship.INCOMING) val timeline: Timeline? = null,
 )
 
 @NodeEntity("Value")

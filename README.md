@@ -8,32 +8,41 @@ The BiTemporal Model has two different time axis.
 With these two axes, we can see past and future events like a time machine.
 
 - [x] versioning
-- [ ] timeline
+- [x] timeline
 - [ ] support JSONSchema? YANG?
 - [ ] Auto-generate GraphQL API
 - [ ] support primitive type
 - [ ] support array type
 - [ ] support key-value type
+- [ ] constraints based on timeline
 
 # Models
 
 ```mermaid
 graph TD
     subgraph object
-        Object-->|fields| Field
-        Field-->|changes| Change
-        Change-->|value| Value
+        Entity
+        Field
+        Change
+        Value
     end
     
+    Entity-->|fields| Field
+    Entity-->|deleted| Change
+    Field-->|changes| Change
+    Change-->|value| Value
+    Change-->|version| Version
+    Change-->|time| Timeline
+    
     subgraph version
+        Version
         Version-->|changes| Change
-        Version-->|created| Object
-        Version-->|deleted| Object
+        Version-->|created| Entity
+        Version-->|deleted| Entity
     end
     
     subgraph time
-        Time-->|time| Change
+        Timeline
+        Timeline-->|time| Change
     end
-    
-    Change-->|version| Version
 ```
