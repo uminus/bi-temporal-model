@@ -87,9 +87,9 @@ class Service {
         time: ZonedDateTime = ZonedDateTime.now(),
         version: Long? = Long.MAX_VALUE,
         id: UUID?,
-    ): Array<Pair<String, String?>> {
+    ): Pair<Entity, Array<Pair<String, String?>>> {
         val entity = ses.load(Entity::class.java, id, 3)
-        return entity.fields.map { f ->
+        val kvs = entity.fields.map { f ->
             val versioned = f.changes
                 .filter { it.version?.id!! <= (version ?: Long.MAX_VALUE) }
                 .sortedBy { it.timeline?.id }
@@ -98,6 +98,7 @@ class Service {
         }
             .filter { it.second != null }
             .toTypedArray()
+        return Pair(entity, kvs)
     }
 
     private fun checkEntity(entity: Entity) {

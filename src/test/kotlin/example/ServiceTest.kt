@@ -21,7 +21,7 @@ internal class ServiceTest {
         val ses = sessionFactory.openSession()
         val service = Service()
 
-        val (v1 ,entity1) = service.save(
+        val (v1, entity1) = service.save(
             ses,
             ZonedDateTime.parse("2021-01-01T00:00:00+09:00"),
             null,
@@ -30,7 +30,7 @@ internal class ServiceTest {
             Pair("key2", "value2")
         )
 
-        val actual1 = service.get(ses, ZonedDateTime.parse("2021-01-01T00:00:00+09:00"), null, entity1.id)
+        val (_, actual1) = service.get(ses, ZonedDateTime.parse("2021-01-01T00:00:00+09:00"), null, entity1.id)
         actual1.sortBy { it.first }
         assertContentEquals(arrayOf(Pair("key1", "value1"), Pair("key2", "value2")), actual1)
 
@@ -42,15 +42,15 @@ internal class ServiceTest {
             Pair("key1", "updated"),
             Pair("KEY1", "VALUE1")
         )
-        val actual2 = service.get(ses, ZonedDateTime.parse("2021-06-01T00:00:00+09:00"), null, entity2.id)
+        val (_, actual2) = service.get(ses, ZonedDateTime.parse("2021-06-01T00:00:00+09:00"), null, entity2.id)
         actual2.sortBy { it.first }
         assertContentEquals(arrayOf(Pair("KEY1", "VALUE1"), Pair("key1", "updated"), Pair("key2", "value2")), actual2)
 
-        val actual3 = service.get(ses, ZonedDateTime.parse("2021-01-01T00:00:00+09:00"), null, entity2.id)
+        val (_, actual3) = service.get(ses, ZonedDateTime.parse("2021-01-01T00:00:00+09:00"), null, entity2.id)
         actual3.sortBy { it.first }
         assertContentEquals(arrayOf(Pair("key1", "value1"), Pair("key2", "value2")), actual3)
 
-        val actual4 = service.get(ses, ZonedDateTime.parse("2021-06-01T00:00:00+09:00"), v1.id, entity2.id)
+        val (_, actual4) = service.get(ses, ZonedDateTime.parse("2021-06-01T00:00:00+09:00"), v1.id, entity2.id)
         actual4.sortBy { it.first }
         assertContentEquals(arrayOf(Pair("key1", "value1"), Pair("key2", "value2")), actual4)
 
