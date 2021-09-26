@@ -9,9 +9,9 @@ import java.util.*
 internal class RepositoryTest {
 
     @Test
-    fun save() {
+    fun dataclass() {
         val configuration: Configuration = Configuration.Builder()
-            .uri("bolt://192.168.10.101")
+            .uri("bolt://dev")
             .credentials("neo4j", "password")
             .build()
 
@@ -20,12 +20,14 @@ internal class RepositoryTest {
 
         val d = Data(null, "a", "b")
         val d2 = Repository().save(ses, null, d)
-        assertEquals(d, d2)
+        assertEquals(d.name, d2.name)
+        assertEquals(d.name, d2.name)
 
         val d3: Data = Repository().get(ses, null, null, d2.id!!)
+        assertEquals(d2, d3)
 
-        assertEquals(d, d3)
-
+        val d4 = Repository().save(ses, null, d3.copy(name = "updated"))
+        assertEquals("updated", d4.name)
     }
 }
 
