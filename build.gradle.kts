@@ -12,9 +12,10 @@ repositories {
 }
 
 dependencies {
+    implementation(kotlin("reflect"))
     implementation("org.neo4j:neo4j-ogm-core:3.2.26")
-
     runtimeOnly("org.neo4j:neo4j-ogm-bolt-driver:3.2.26")
+
     testImplementation(kotlin("test"))
 }
 

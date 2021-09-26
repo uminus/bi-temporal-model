@@ -9,6 +9,7 @@ With these two axes, we can see past and future events like a time machine.
 
 - [x] versioning
 - [x] timeline
+- [wip] support Kotlin data class
 - [ ] support JSONSchema? YANG?
 - [ ] Auto-generate GraphQL API
 - [ ] support primitive type
