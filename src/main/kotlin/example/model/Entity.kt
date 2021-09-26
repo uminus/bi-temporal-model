@@ -16,6 +16,7 @@ data class Entity constructor(
     @Relationship(type = "fields") var fields: Array<Field> = emptyArray(),
 ) {
     @Relationship(type = "deleted")
+    var created: Change? = null
     var deleted: Change? = null
 }
 
