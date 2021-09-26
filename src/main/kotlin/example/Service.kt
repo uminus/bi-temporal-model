@@ -1,14 +1,17 @@
 package example
 
 import example.model.*
+import org.neo4j.ogm.cypher.ComparisonOperator
+import org.neo4j.ogm.cypher.Filter
 import org.neo4j.ogm.session.Session
 import java.time.ZonedDateTime
 import java.util.*
 
+
 class Service {
     fun save(
         ses: Session,
-        time: ZonedDateTime? = ZonedDateTime.now(),
+        time: ZonedDateTime,
         id: UUID?,
         type: String,
         vararg kvs: Pair<String, String>
@@ -24,6 +27,7 @@ class Service {
 
             entity = if (id == null) {
                 val e = Entity(id = null, type = type, fields = emptyArray())
+                e.created = Change(null, null, version, t)
                 created.add(e)
                 e
             } else ses.load(Entity::class.java, id, 3)
@@ -63,7 +67,7 @@ class Service {
         return Pair(version, entity)
     }
 
-    fun delete(ses: Session, time: ZonedDateTime? = ZonedDateTime.now(), id: UUID): Version {
+    fun delete(ses: Session, time: ZonedDateTime, id: UUID): Version {
         lateinit var version: Version
         ses.beginTransaction().use { tx ->
             val entity = ses.load(Entity::class.java, id, 3)
@@ -82,23 +86,34 @@ class Service {
         return version
     }
 
-    fun get(
+    fun get(ses: Session, time: ZonedDateTime, version: Long?, id: UUID?): Pair<Entity, Array<Pair<String, String?>>> {
+        val entity = ses.load(Entity::class.java, id)
+        return Pair(entity, toKVs(time, version ?: Long.MAX_VALUE, entity))
+    }
+
+    fun getAll(
         ses: Session,
-        time: ZonedDateTime = ZonedDateTime.now(),
-        version: Long? = Long.MAX_VALUE,
-        id: UUID?,
-    ): Pair<Entity, Array<Pair<String, String?>>> {
-        val entity = ses.load(Entity::class.java, id, 3)
-        val kvs = entity.fields.map { f ->
+        time: ZonedDateTime,
+        version: Long?,
+        type: String
+    ): Array<Pair<Entity, Array<Pair<String, String?>>>> {
+        return ses.loadAll(Entity::class.java, Filter("type", ComparisonOperator.EQUALS, type))
+            .filter { it.created?.version?.id!! <= (version ?: Long.MAX_VALUE) }
+            .filter { it.created?.timeline?.id!! <= time }
+            .map { Pair(it, toKVs(time, version ?: Long.MAX_VALUE, it)) }
+            .toTypedArray()
+    }
+
+    private fun toKVs(time: ZonedDateTime, version: Long, entity: Entity): Array<Pair<String, String?>> {
+        return entity.fields.map { f ->
             val versioned = f.changes
-                .filter { it.version?.id!! <= (version ?: Long.MAX_VALUE) }
+                .filter { it.version?.id!! <= (version) }
                 .sortedBy { it.timeline?.id }
             val value = versioned.lastOrNull { it.timeline?.id!! <= time }
             Pair(f.name, value?.value?.value)
         }
             .filter { it.second != null }
             .toTypedArray()
-        return Pair(entity, kvs)
     }
 
     private fun checkEntity(entity: Entity) {
