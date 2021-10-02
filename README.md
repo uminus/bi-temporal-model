@@ -17,7 +17,7 @@ With these two axes, we can see past and future events like a time machine.
 - [ ] support key-value type
 - [ ] constraints based on timeline
 
-# Models
+## Model diagram
 
 ```mermaid
 graph TD
@@ -47,3 +47,23 @@ graph TD
         Timeline-->|time| Change
     end
 ```
+## Modeling(Kotlin data class)
+```kotlin
+data class Data(
+    override var id: UUID?,
+    val string_value: String,
+    val long_value: Long,
+    val double_value: Double,
+    val boolean_value: Boolean,
+) : Model
+```
+
+## Supported Types
+- [x] String
+- [x] Long
+- [x] Double
+- [x] Boolean
+- [ ] DateTime
+- [ ] Array
+- [ ] Key-Value
+- [ ] Reference

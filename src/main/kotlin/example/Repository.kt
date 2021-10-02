@@ -18,7 +18,7 @@ class Repository {
 
         val kvs = obj::class.memberProperties
             .filter { it.name != "id" }
-            .map { Pair(it.name, it.getter.call(obj) as String) }
+            .map { Pair(it.name, it.getter.call(obj) as Any) }
         val (_, entity) = Service().save(ses, time, obj.id, obj::class.qualifiedName!!, *kvs.toTypedArray())
 
 //        val idProp = obj::class.memberProperties
@@ -51,7 +51,7 @@ class Repository {
             .map { toModel(it.first, it.second) }
     }
 
-    private fun <T : Model> toModel(entity: Entity, kvs: Array<Pair<String, String?>>): T {
+    private fun <T : Model> toModel(entity: Entity, kvs: Array<Pair<String, Any?>>): T {
         val klass = Class.forName(entity.type).kotlin
         val constructor = klass.primaryConstructor!!
         val args = mutableListOf<Any?>()

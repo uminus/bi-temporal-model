@@ -40,5 +40,5 @@ data class Change constructor(
 @NodeEntity("Value")
 data class Value constructor(
     @Id @GeneratedValue(strategy = UuidStrategy::class) @Convert(UuidStringConverter::class) val id: UUID? = null,
-    val value: String? = null,
+    val value: Any? = null, // FIXME This implementation strongly depends on the behavior of neo4j-ogm.
 )
