@@ -14,7 +14,7 @@ class Service {
         time: ZonedDateTime,
         id: UUID?,
         type: String,
-        vararg kvs: Pair<String, String>
+        vararg kvs: Pair<String, Any>
     ): Pair<Version, Entity> {
         lateinit var version: Version
         lateinit var entity: Entity
@@ -36,7 +36,7 @@ class Service {
 
             val fields = entity.fields.toMutableList()
 
-            for (kv: Pair<String, String> in kvs) {
+            for (kv: Pair<String, Any> in kvs) {
                 val key = kv.first
                 val value = kv.second
                 val v = Value(id = null, value = value)
@@ -86,7 +86,7 @@ class Service {
         return version
     }
 
-    fun get(ses: Session, time: ZonedDateTime, version: Long?, id: UUID?): Pair<Entity, Array<Pair<String, String?>>> {
+    fun get(ses: Session, time: ZonedDateTime, version: Long?, id: UUID?): Pair<Entity, Array<Pair<String, Any?>>> {
         val entity = ses.load(Entity::class.java, id)
         return Pair(entity, toKVs(time, version ?: Long.MAX_VALUE, entity))
     }
@@ -96,7 +96,7 @@ class Service {
         time: ZonedDateTime,
         version: Long?,
         type: String
-    ): Array<Pair<Entity, Array<Pair<String, String?>>>> {
+    ): Array<Pair<Entity, Array<Pair<String, Any?>>>> {
         return ses.loadAll(Entity::class.java, Filter("type", ComparisonOperator.EQUALS, type))
             .filter { it.created?.version?.id!! <= (version ?: Long.MAX_VALUE) }
             .filter { it.created?.timeline?.id!! <= time }
@@ -104,7 +104,7 @@ class Service {
             .toTypedArray()
     }
 
-    private fun toKVs(time: ZonedDateTime, version: Long, entity: Entity): Array<Pair<String, String?>> {
+    private fun toKVs(time: ZonedDateTime, version: Long, entity: Entity): Array<Pair<String, Any?>> {
         return entity.fields.map { f ->
             val versioned = f.changes
                 .filter { it.version?.id!! <= (version) }
