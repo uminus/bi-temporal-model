@@ -14,6 +14,7 @@ repositories {
 dependencies {
     implementation(kotlin("reflect"))
     implementation("org.neo4j:neo4j-ogm-core:3.2.26")
+    implementation("com.graphql-java:graphql-java:17.3")
     runtimeOnly("org.neo4j:neo4j-ogm-bolt-driver:3.2.26")
 
     testImplementation(kotlin("test"))
