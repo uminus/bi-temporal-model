@@ -25,7 +25,7 @@ internal class DataClassParserKtTest {
 
         // test data
         val repo = Repository()
-        repo.save(ses, ZonedDateTime.now(), Data(null, "string1", 123L, 456.789, true))
+        val entity1 = repo.save(ses, ZonedDateTime.now(), Data(null, "string1", 123L, 456.789, true))
         repo.save(ses, ZonedDateTime.now(), Data(null, "string2", 123L, 456.789, true))
         repo.save(ses, ZonedDateTime.now(), Data(null, "string3", 123L, 456.789, true))
         repo.save(ses, ZonedDateTime.now(), Data(null, "string4", 123L, 456.789, true))
@@ -34,14 +34,19 @@ internal class DataClassParserKtTest {
 
         val schema = parse(ses, arrayOf(Data::class, DataOne::class))
 //        println(SchemaPrinter().print(schema))
-
         val executor = GraphQL.newGraphQL(schema).build()
+
         val raw = executor.execute("{data { string_value }}").getData<Map<String, String>>()
             .get("data") as List<Map<String, String>>
         val actual1 = raw.map { it.get("string_value") }.sortedBy { it }
         assertEquals(
             listOf("string1", "string2", "string3", "string4"),
             actual1
+        )
+
+        assertEquals(
+            "{data=[{string_value=string1}]}",
+            "${executor.execute("""{data(ids: ["${entity1.id}"]) { string_value }}""").getData() as Any}"
         )
 
         assertEquals(

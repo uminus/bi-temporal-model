@@ -5,11 +5,22 @@ import example.Repository
 import example.camel2snake
 import graphql.Scalars
 import graphql.schema.*
+import graphql.schema.GraphQLArgument.newArgument
 import graphql.schema.GraphQLCodeRegistry.newCodeRegistry
 import org.neo4j.ogm.session.Session
+import java.time.Instant
+import java.time.ZoneId
+import java.time.ZonedDateTime
+import java.util.*
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
+
+const val TIME = "time"
+const val VERSION = "version"
+const val ID = "id"
+const val IDs = "ids"
+
 
 fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
     val type = GraphQLObjectType.newObject()
@@ -18,17 +29,48 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
             GraphQLFieldDefinition.newFieldDefinition()
                 .name(it.simpleName?.camel2snake())
                 .type(GraphQLList(parse(it)))
+                .argument(
+                    newArgument()
+                        .name(TIME)
+                        .type(Scalars.GraphQLInt)
+                )
+                .argument(
+                    newArgument()
+                        .name(VERSION)
+                        .type(Scalars.GraphQLInt)
+                )
+                .argument(
+                    newArgument()
+                        .name(ID)
+                        .type(Scalars.GraphQLString)
+                )
+                .argument(
+                    newArgument()
+                        .name(IDs)
+                        .type(GraphQLList(Scalars.GraphQLString))
+                )
                 .build()
         })
 
     val registry = newCodeRegistry()
-    klasses.map {
+    klasses.map { klass ->
         registry.dataFetcher(
-            FieldCoordinates.coordinates("Query", it.simpleName?.camel2snake()),
+            FieldCoordinates.coordinates("Query", klass.simpleName?.camel2snake()),
             DataFetcher { env ->
-                // TODO get time, version from env
+                val (time, version) = getTime(env)
+                val (id, ids) = getIds(env)
                 // FIXME hard coding
-                Repository().getAll(ses, null, null, it)
+                val data = if (id !== null) {
+                    listOf(Repository().get<Model>(ses, time, version, UUID.fromString(id)))
+                } else if (ids !== null) {
+                    ids.map {
+                        Repository().get<Model>(ses, time, version, UUID.fromString(it))
+                    }
+                } else {
+                    Repository().getAll(ses, time, version, klass)
+                }
+
+                data
             }
         )
     }
@@ -61,4 +103,15 @@ fun graphQLType(ktype: KType): GraphQLOutputType {
         Boolean::class -> Scalars.GraphQLBoolean
         else -> Scalars.GraphQLString
     }
+}
+
+fun getIds(env: DataFetchingEnvironment): Pair<String?, List<String>?> {
+    return Pair(env.getArgument(ID), env.getArgument(IDs))
+}
+
+fun getTime(env: DataFetchingEnvironment): Pair<ZonedDateTime, Long?> {
+    return Pair(
+        Instant.ofEpochMilli(env.getArgumentOrDefault(TIME, System.currentTimeMillis())).atZone(ZoneId.systemDefault()),
+        env.getArgument(VERSION)
+    )
 }
