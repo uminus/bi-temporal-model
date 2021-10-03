@@ -3,6 +3,10 @@ package example.graphql
 import example.Model
 import example.Repository
 import example.camel2snake
+import example.graphql.filter.BooleanFilter
+import example.graphql.filter.Filter
+import example.graphql.filter.NumericFilter
+import example.graphql.filter.StringFilter
 import graphql.Scalars
 import graphql.schema.*
 import graphql.schema.GraphQLArgument.newArgument
@@ -12,23 +16,31 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.util.*
+import java.util.function.Predicate
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
+
 
 const val TIME = "time"
 const val VERSION = "version"
 const val ID = "id"
 const val IDs = "ids"
+const val FILTER = "filter"
 
-
+/**
+ * TODO refactoring
+ */
 fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
+    val defs = klasses.map { parse(it) }
+
+
     val type = GraphQLObjectType.newObject()
         .name("Query")
-        .fields(klasses.map {
+        .fields(defs.map {
             GraphQLFieldDefinition.newFieldDefinition()
-                .name(it.simpleName?.camel2snake())
-                .type(GraphQLList(parse(it)))
+                .name(it.first.name.camel2snake())
+                .type(GraphQLList(it.first))
                 .argument(
                     newArgument()
                         .name(TIME)
@@ -49,6 +61,11 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
                         .name(IDs)
                         .type(GraphQLList(Scalars.GraphQLString))
                 )
+                .argument(
+                    newArgument()
+                        .name(FILTER)
+                        .type(it.second)
+                )
                 .build()
         })
 
@@ -59,18 +76,40 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
             DataFetcher { env ->
                 val (time, version) = getTime(env)
                 val (id, ids) = getIds(env)
+
                 // FIXME hard coding
                 val data = if (id !== null) {
-                    listOf(Repository().get<Model>(ses, time, version, UUID.fromString(id)))
+                    listOf(Repository().get(ses, time, version, UUID.fromString(id)))
                 } else if (ids !== null) {
                     ids.map {
-                        Repository().get<Model>(ses, time, version, UUID.fromString(it))
+                        Repository().get(ses, time, version, UUID.fromString(it))
                     }
                 } else {
                     Repository().getAll(ses, time, version, klass)
                 }
 
-                data
+                val filterArgs = env.getArgumentOrDefault<Map<String, Map<String, String>>>(FILTER, emptyMap())
+
+                val filters = filterArgs
+                    .flatMap { f ->
+                        val target = klass.memberProperties.first { it.name == f.key }
+                        val ops = f.value
+                        ops.entries.map { kv ->
+                            Predicate<Model> { model ->
+                                val filter = when (graphQLType(target.returnType)) {
+                                    Scalars.GraphQLString -> StringFilter::valueOf
+                                    Scalars.GraphQLInt -> NumericFilter::valueOf
+                                    Scalars.GraphQLFloat -> NumericFilter::valueOf
+                                    Scalars.GraphQLBoolean -> BooleanFilter::valueOf
+                                    else -> StringFilter::valueOf
+                                }
+
+                                val op = filter(kv.key.uppercase()) as Filter<Any>
+                                op.test(kv.value, target.getter.call(model))
+                            }
+                        }
+                    }
+                data.filter { t -> filters.all { it.test(t) } }
             }
         )
     }
@@ -81,21 +120,54 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
         .build()
 }
 
-
-fun <T : Model> parse(klass: KClass<T>): GraphQLObjectType {
-    return GraphQLObjectType.newObject()
+fun <T : Model> parse(klass: KClass<T>): Pair<GraphQLObjectType, GraphQLInputObjectType> {
+    val props = klass.memberProperties
+    val type = GraphQLObjectType.newObject()
         .name(klass.simpleName)
         .description(klass.qualifiedName)
-        .fields(klass.memberProperties.map {
+        .fields(props.map {
             GraphQLFieldDefinition.newFieldDefinition()
                 .name(it.name.camel2snake())
                 .type(graphQLType(it.returnType))
                 .build()
         }.toList())
         .build()
+
+    val filterType = GraphQLInputObjectType.newInputObject()
+        .name("${klass.simpleName}Filter")
+        .description("Filter for ${klass.qualifiedName}")
+        .fields(props
+            .filter {
+                when (graphQLType(it.returnType)) {
+                    Scalars.GraphQLString -> true
+                    Scalars.GraphQLInt -> true
+                    Scalars.GraphQLFloat -> true
+                    Scalars.GraphQLBoolean -> true
+                    else -> false
+                }
+            }
+            .map {
+                val f = GraphQLInputObjectField.newInputObjectField()
+                    .name(it.name.camel2snake())
+
+                val filter = when (graphQLType(it.returnType)) {
+                    Scalars.GraphQLString -> StringFilter.FILTERS
+                    Scalars.GraphQLInt -> NumericFilter.INTEGER_FILTERS
+                    Scalars.GraphQLFloat -> NumericFilter.FLOAT_FILTERS
+                    Scalars.GraphQLBoolean -> BooleanFilter.FILTERS
+                    else -> Scalars.GraphQLString
+                }
+
+                f.type(filter)
+                    .build()
+            }.toList()
+        )
+        .build()
+
+    return Pair(type, filterType)
 }
 
-fun graphQLType(ktype: KType): GraphQLOutputType {
+fun graphQLType(ktype: KType): GraphQLScalarType {
     return when (ktype.classifier) {
         String::class -> Scalars.GraphQLString
         Int::class, Long::class -> Scalars.GraphQLInt

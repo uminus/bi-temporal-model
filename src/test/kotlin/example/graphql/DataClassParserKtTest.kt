@@ -3,6 +3,7 @@ package example.graphql
 import example.Model
 import example.Repository
 import graphql.GraphQL
+import graphql.schema.idl.SchemaPrinter
 import org.junit.jupiter.api.Test
 import org.neo4j.ogm.config.Configuration
 import org.neo4j.ogm.session.SessionFactory
@@ -26,14 +27,14 @@ internal class DataClassParserKtTest {
         // test data
         val repo = Repository()
         val entity1 = repo.save(ses, ZonedDateTime.now(), Data(null, "string1", 123L, 456.789, true))
-        repo.save(ses, ZonedDateTime.now(), Data(null, "string2", 123L, 456.789, true))
-        repo.save(ses, ZonedDateTime.now(), Data(null, "string3", 123L, 456.789, true))
-        repo.save(ses, ZonedDateTime.now(), Data(null, "string4", 123L, 456.789, true))
+        repo.save(ses, ZonedDateTime.now(), Data(null, "string2", 123L, 456.789, false))
+        repo.save(ses, ZonedDateTime.now(), Data(null, "string3", 123L, 456.789, false))
+        repo.save(ses, ZonedDateTime.now(), Data(null, "string4", 123L, 456.789, false))
 
         repo.save(ses, ZonedDateTime.now(), DataOne(null, "value"))
 
         val schema = parse(ses, arrayOf(Data::class, DataOne::class))
-//        println(SchemaPrinter().print(schema))
+        println(SchemaPrinter().print(schema))
         val executor = GraphQL.newGraphQL(schema).build()
 
         val raw = executor.execute("{data { string_value }}").getData<Map<String, String>>()
@@ -46,9 +47,8 @@ internal class DataClassParserKtTest {
 
         assertEquals(
             "{data=[{string_value=string1}]}",
-            "${executor.execute("""{data(ids: ["${entity1.id}"]) { string_value }}""").getData() as Any}"
+            "${executor.execute("""{data(filter: {boolean_value: {eq: true}}) { string_value }}""").getData() as Any}"
         )
-
         assertEquals(
             "{data_one=[{value=value}]}",
             "${executor.execute("{data_one { value }}").getData() as Any}"
