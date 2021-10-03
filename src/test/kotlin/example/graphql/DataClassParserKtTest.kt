@@ -53,6 +53,24 @@ internal class DataClassParserKtTest {
             "{data_one=[{value=value}]}",
             "${executor.execute("{data_one { value }}").getData() as Any}"
         )
+
+        assertEquals(
+            "{data={string_value=string, double_value=654.321}}",
+            "${
+                executor.execute("mutation {data(data: {string_value: \"string\", long_value: 987, double_value: 654.321, boolean_value: true}) {string_value double_value}}")
+                    .getData() as Any
+            }"
+        )
+
+        executor.execute("mutation {data(data: {id: \"${entity1.id}\", string_value: \"MUTATION_UPDATE\", long_value: 987, double_value: 11.11, boolean_value: true}) {id}}")
+
+        assertEquals(
+            "{data=[{double_value=11.11}]}",
+            "${
+                executor.execute("""{data(filter: {string_value: {eq: "MUTATION_UPDATE"}}) { double_value }}""")
+                    .getData() as Any
+            }"
+        )
     }
 }
 

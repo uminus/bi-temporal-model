@@ -20,6 +20,7 @@ import java.util.function.Predicate
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 
 
 const val TIME = "time"
@@ -69,6 +70,26 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
                 .build()
         })
 
+    val mutation = GraphQLObjectType.newObject()
+        .name("Mutation")
+        .fields(defs.map {
+            GraphQLFieldDefinition.newFieldDefinition()
+                .name(it.first.name.camel2snake())
+                .type(it.first)
+                .argument(
+                    newArgument()
+                        .name(TIME)
+                        .type(Scalars.GraphQLInt)
+                )
+                .argument(
+                    newArgument()
+                        .name("data")
+                        .type(it.third)
+                        .build()
+                )
+                .build()
+        })
+
     val registry = newCodeRegistry()
     klasses.map { klass ->
         registry.dataFetcher(
@@ -112,15 +133,39 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
                 data.filter { t -> filters.all { it.test(t) } }
             }
         )
+
+        registry.dataFetcher(
+            FieldCoordinates.coordinates("Mutation", klass.simpleName?.camel2snake()),
+            DataFetcher { env ->
+                val (time, version) = getTime(env)
+                val argsJson = env.arguments[klass.simpleName?.camel2snake()] as Map<String, Any>
+
+                val constructor = klass.primaryConstructor!!
+                val args = mutableListOf<Any?>()
+                for (param in constructor.parameters) {
+                    if (param.name == "id") {
+                        val id = argsJson["id"] as String?
+                        args.add(if (id != null) UUID.fromString(id) else null)
+                    } else {
+                        argsJson.entries.firstOrNull { it.key == param.name }?.let {
+                            args.add(it.value)
+                        }
+                    }
+                }
+                val model = constructor.call(*args.toTypedArray()) as Model
+                Repository().save(ses, time, model)
+            }
+        )
     }
 
     return GraphQLSchema.newSchema()
         .query(type)
+        .mutation(mutation)
         .codeRegistry(registry.build())
         .build()
 }
 
-fun <T : Model> parse(klass: KClass<T>): Pair<GraphQLObjectType, GraphQLInputObjectType> {
+fun <T : Model> parse(klass: KClass<T>): Triple<GraphQLObjectType, GraphQLInputObjectType, GraphQLInputObjectType> {
     val props = klass.memberProperties
     val type = GraphQLObjectType.newObject()
         .name(klass.simpleName)
@@ -164,7 +209,23 @@ fun <T : Model> parse(klass: KClass<T>): Pair<GraphQLObjectType, GraphQLInputObj
         )
         .build()
 
-    return Pair(type, filterType)
+    val mutationArgsType = GraphQLInputObjectType.newInputObject()
+        .name("${klass.simpleName}Args")
+        .description("Arguments for ${klass.qualifiedName}")
+        .fields(props.map {
+            GraphQLInputObjectField.newInputObjectField()
+                .name(it.name.camel2snake())
+                .type(
+                    if (it.returnType.isMarkedNullable)
+                        graphQLType(it.returnType)
+                    else
+                        GraphQLNonNull.nonNull(graphQLType(it.returnType))
+                )
+                .build()
+        })
+        .build()
+
+    return Triple(type, filterType, mutationArgsType)
 }
 
 fun graphQLType(ktype: KType): GraphQLScalarType {
