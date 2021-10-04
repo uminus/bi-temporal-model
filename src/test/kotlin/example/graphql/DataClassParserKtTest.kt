@@ -71,6 +71,14 @@ internal class DataClassParserKtTest {
                     .getData() as Any
             }"
         )
+
+        executor.execute("mutation {data(delete: \"${entity1.id}\") {id}}")
+        val raw2 = executor.execute("{data { string_value }}").getData<Map<String, String>>()
+            .get("data") as List<Map<String, String>>
+        assertEquals(
+            listOf("string", "string2", "string3", "string4"),
+            raw2.map { it.get("string_value") }.sortedBy { it }
+        )
     }
 }
 

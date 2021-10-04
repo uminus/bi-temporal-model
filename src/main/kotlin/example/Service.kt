@@ -100,6 +100,12 @@ class Service {
         return ses.loadAll(Entity::class.java, Filter("type", ComparisonOperator.EQUALS, type))
             .filter { it.created?.version?.id!! <= (version ?: Long.MAX_VALUE) }
             .filter { it.created?.timeline?.id!! <= time }
+            .filter {
+                it.deleted == null || (
+                        it.deleted?.version?.id!! <= (version ?: Long.MAX_VALUE)
+                                && it.deleted?.timeline?.id!! > time
+                        )
+            }
             .map { Pair(it, toKVs(time, version ?: Long.MAX_VALUE, it)) }
             .toTypedArray()
     }

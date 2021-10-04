@@ -1,6 +1,7 @@
 package example
 
 import example.model.Entity
+import example.model.Version
 import org.neo4j.ogm.session.Session
 import java.time.ZonedDateTime
 import java.util.*
@@ -32,6 +33,10 @@ class Repository {
 
         @Suppress("UNCHECKED_CAST")
         return copy.callBy(mapOf(params to obj, idParam to entity.id)) as T
+    }
+
+    fun delete(ses: Session, time: ZonedDateTime, id: UUID): Version {
+        return Service().delete(ses, time, id)
     }
 
     fun <T : Model> get(ses: Session, time: ZonedDateTime?, version: Long?, id: UUID): T {

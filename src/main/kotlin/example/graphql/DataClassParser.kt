@@ -28,6 +28,7 @@ const val VERSION = "version"
 const val ID = "id"
 const val IDs = "ids"
 const val FILTER = "filter"
+const val DELETE = "delete"
 
 /**
  * TODO refactoring
@@ -87,6 +88,12 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
                         .type(it.third)
                         .build()
                 )
+                .argument(
+                    newArgument()
+                        .name(DELETE)
+                        .description("Object id to delete")
+                        .type(Scalars.GraphQLString)
+                )
                 .build()
         })
 
@@ -138,22 +145,31 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
             FieldCoordinates.coordinates("Mutation", klass.simpleName?.camel2snake()),
             DataFetcher { env ->
                 val (time, version) = getTime(env)
-                val argsJson = env.arguments[klass.simpleName?.camel2snake()] as Map<String, Any>
 
-                val constructor = klass.primaryConstructor!!
-                val args = mutableListOf<Any?>()
-                for (param in constructor.parameters) {
-                    if (param.name == "id") {
-                        val id = argsJson["id"] as String?
-                        args.add(if (id != null) UUID.fromString(id) else null)
-                    } else {
-                        argsJson.entries.firstOrNull { it.key == param.name }?.let {
-                            args.add(it.value)
+                if (env.containsArgument(klass.simpleName?.camel2snake())) {
+                    val argsJson = env.arguments[klass.simpleName?.camel2snake()] as Map<String, Any>
+                    val constructor = klass.primaryConstructor!!
+                    val args = mutableListOf<Any?>()
+                    for (param in constructor.parameters) {
+                        if (param.name == "id") {
+                            val id = argsJson["id"] as String?
+                            args.add(if (id != null) UUID.fromString(id) else null)
+                        } else {
+                            argsJson.entries.firstOrNull { it.key == param.name }?.let {
+                                args.add(it.value)
+                            }
                         }
                     }
+                    val model = constructor.call(*args.toTypedArray()) as Model
+                    Repository().save(ses, time, model)
+                } else if (env.containsArgument(DELETE)) {
+                    val delete = env.getArgument<String>(DELETE)
+                    val deleted = Repository().get(ses, time, null, UUID.fromString(delete)) as Model
+                    Repository().delete(ses, time, deleted.id!!)
+                    deleted
+                } else {
+                    throw IllegalArgumentException()
                 }
-                val model = constructor.call(*args.toTypedArray()) as Model
-                Repository().save(ses, time, model)
             }
         )
     }
@@ -165,7 +181,7 @@ fun parse(ses: Session, klasses: Array<KClass<out Model>>): GraphQLSchema {
         .build()
 }
 
-fun <T : Model> parse(klass: KClass<T>): Triple<GraphQLObjectType, GraphQLInputObjectType, GraphQLInputObjectType> {
+fun <T : Model> parse(klass: KClass<out T>): Triple<GraphQLObjectType, GraphQLInputObjectType, GraphQLInputObjectType> {
     val props = klass.memberProperties
     val type = GraphQLObjectType.newObject()
         .name(klass.simpleName)

@@ -50,6 +50,10 @@ internal class RepositoryTest {
         )
         val d6 = Repository().getAll(ses, ZonedDateTime.now(), null, Data::class)
         assertEquals(2, d6.size)
+
+        Repository().delete(ses, ZonedDateTime.now(), d2.id!!)
+        val d7 = Repository().getAll(ses, ZonedDateTime.now(), null, Data::class)
+        assertEquals(1, d7.size)
     }
 }
 
