@@ -11,8 +11,8 @@ With these two axes, we can see past and future events like a time machine.
 - [x] timeline
 - [wip] support Kotlin data class
 - [ ] support JSONSchema? YANG?
-- [ ] Auto-generate GraphQL API
-- [ ] support primitive type
+- [x] Auto-generate GraphQL API
+- [x] support primitive type
 - [ ] support array type
 - [ ] support key-value type
 - [ ] constraints based on timeline
