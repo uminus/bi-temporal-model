@@ -1,0 +1,23 @@
+{
+  "$id": "https://example.com/simple.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Simple",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "string_value": {
+      "type": "string"
+    },
+    "long_value": {
+      "type": "integer"
+    },
+    "double_value": {
+      "type": "number"
+    },
+    "boolean_value": {
+      "type": "boolean"
+    }
+  }
+}

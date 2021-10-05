@@ -18,6 +18,8 @@ dependencies {
     implementation("com.graphql-java:graphql-java-extended-scalars:17.0")
     runtimeOnly("org.neo4j:neo4j-ogm-bolt-driver:3.2.26")
 
+    implementation("com.jayway.jsonpath:json-path:2.6.0")
+
     testImplementation(kotlin("test"))
 }
 
