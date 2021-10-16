@@ -20,12 +20,15 @@ internal class RepositoryTest {
         val ses = sessionFactory.openSession()
         ses.purgeDatabase()
 
-        val d = Data(null, "str", 123L, 456.789, true)
+        val d = Data(null, "str", 123L, 456.789, true, Nest("nested", Nest("nested2", null)), null)
         val d2 = Repository().save(ses, ZonedDateTime.now(), d)
         assertEquals(d.string_value, d2.string_value)
         assertEquals(d.long_value, d2.long_value)
         assertEquals(d.double_value, d2.double_value)
         assertEquals(d.boolean_value, d2.boolean_value)
+        assertEquals("nested", d2.nest?.value)
+        assertEquals("nested2", d2.nest?.nest?.value)
+//        assertEquals("ref", d2.reference?.model?.value)
 
         val d3: Data = Repository().get(ses, null, null, d2.id!!)
         assertEquals(d2, d3)
@@ -46,7 +49,7 @@ internal class RepositoryTest {
         Repository().save(
             ses,
             ZonedDateTime.now(),
-            Data(null, "STR", 987L, 654.321, true)
+            Data(null, "STR", 987L, 654.321, true, null, null)
         )
         val d6 = Repository().getAll(ses, ZonedDateTime.now(), null, Data::class)
         assertEquals(2, d6.size)
@@ -63,4 +66,16 @@ data class Data(
     val long_value: Long,
     val double_value: Double,
     val boolean_value: Boolean,
+    val nest: Nest?,
+    val reference: Ref<RefData>?,
+) : Model
+
+data class Nest(
+    val value: String,
+    val nest: Nest?,
+)
+
+data class RefData(
+    override var id: UUID?,
+    val value: String,
 ) : Model

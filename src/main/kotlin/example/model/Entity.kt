@@ -15,7 +15,6 @@ data class Entity constructor(
     var type: String = "Object",
     @Relationship(type = "fields") var fields: Array<Field> = emptyArray(),
 ) {
-    @Relationship(type = "deleted")
     var created: Change? = null
     var deleted: Change? = null
 }
@@ -41,4 +40,10 @@ data class Change constructor(
 data class Value constructor(
     @Id @GeneratedValue(strategy = UuidStrategy::class) @Convert(UuidStringConverter::class) val id: UUID? = null,
     val value: Any? = null, // FIXME This implementation strongly depends on the behavior of neo4j-ogm.
+)
+
+@NodeEntity("Reference")
+data class Reference constructor(
+    @Id @GeneratedValue(strategy = UuidStrategy::class) @Convert(UuidStringConverter::class) val id: UUID? = null,
+    val entity: Entity? = null,
 )
